@@ -11,7 +11,7 @@ from os.path import splitext, isfile, join
 from pathlib import Path
 from torch.utils.data import Dataset
 from tqdm import tqdm
-
+import os
 
 def load_image(filename):
     ext = splitext(filename)[1]
@@ -23,8 +23,8 @@ def load_image(filename):
         return Image.open(filename)
 
 
-def unique_mask_values(idx, mask_dir, mask_suffix):
-    mask_file = list(mask_dir.glob(idx + mask_suffix + '.*'))[0]
+def unique_mask_values(idx, mask_dir, mask_suffix=''):
+    mask_file = list(mask_dir.glob(idx + mask_suffix + '.*'))[0] # baseName + suffix + format
     mask = np.asarray(load_image(mask_file))
     if mask.ndim == 2:
         return np.unique(mask)
@@ -43,7 +43,7 @@ class BasicDataset(Dataset):
         self.scale = scale
         self.mask_suffix = mask_suffix
 
-        self.ids = [splitext(file)[0] for file in listdir(images_dir) if isfile(join(images_dir, file)) and not file.startswith('.')]
+        self.ids = [splitext(file)[0] for file in listdir(images_dir) if isfile(join(images_dir, file)) and not file.startswith('.')] # baseNames
         if not self.ids:
             raise RuntimeError(f'No input file found in {images_dir}, make sure you put your images there')
 
@@ -51,9 +51,10 @@ class BasicDataset(Dataset):
         logging.info('Scanning mask files to determine unique values')
         with Pool() as p:
             unique = list(tqdm(
-                p.imap(partial(unique_mask_values, mask_dir=self.mask_dir, mask_suffix=self.mask_suffix), self.ids),
-                total=len(self.ids)
-            ))
+                    p.imap(partial(unique_mask_values, mask_dir=self.mask_dir, mask_suffix=self.mask_suffix), self.ids),
+                    total=len(self.ids)
+                )
+            )
 
         self.mask_values = list(sorted(np.unique(np.concatenate(unique), axis=0).tolist()))
         logging.info(f'Unique mask values: {self.mask_values}')
@@ -71,18 +72,18 @@ class BasicDataset(Dataset):
 
         if is_mask:
             mask = np.zeros((newH, newW), dtype=np.int64)
-            for i, v in enumerate(mask_values):
-                if img.ndim == 2:
+            for i, v in enumerate(mask_values): # mask像素->mask_values序号
+                if img.ndim == 2: # 单通道
                     mask[img == v] = i
-                else:
+                else: # 三通道
                     mask[(img == v).all(-1)] = i
 
             return mask
 
         else:
-            if img.ndim == 2:
-                img = img[np.newaxis, ...]
-            else:
+            if img.ndim == 2: # 单通道
+                img = img[np.newaxis, ...] # unsqueeze
+            else: # 三通道
                 img = img.transpose((2, 0, 1))
 
             if (img > 1).any():
