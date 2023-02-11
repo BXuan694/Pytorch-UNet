@@ -30,7 +30,6 @@ def train_model(
         epochs: int = 5,
         batch_size: int = 1,
         learning_rate: float = 1e-5,
-        val_percent: float = 0.1,
         save_checkpoint: bool = True,
         img_scale: float = 0.5,
         amp: bool = False,
@@ -46,8 +45,8 @@ def train_model(
     train_set, val_set = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(0))
     '''
     # 2. Your own data: specify 2 datasets(train&val) intotal.
-    train_set = BasicDataset('/wbx/data/Camvid/train', '/wbx/data/Camvid/train_labels', img_scale, '_L') # Camvid
-    val_set = BasicDataset('/wbx/data/Camvid/val', '/wbx/data/Camvid/val_labels', img_scale, '_L')
+    train_set = BasicDataset('/home/w/data/CamVid/train', '/home/w/data/CamVid/train_labels', img_scale, '_L') # Camvid
+    val_set = BasicDataset('/home/w/data/CamVid/val', '/home/w/data/CamVid/val_labels', img_scale, '_L')
     n_val = len(val_set)
     n_train = len(train_set)
 
@@ -60,7 +59,7 @@ def train_model(
     experiment = wandb.init(project='U-Net', resume='allow', anonymous='must')
     experiment.config.update(
         dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
-             val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale, amp=amp)
+             save_checkpoint=save_checkpoint, img_scale=img_scale, amp=amp)
     )
 
     logging.info(f'''Starting training:
@@ -166,9 +165,9 @@ def train_model(
 
 def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
-    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=100, help='Number of epochs')
+    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=300, help='Number of epochs')
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=8, help='Batch size')
-    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-4, help='Learning rate', dest='lr')
+    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-3, help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
     parser.add_argument('--scale', '-s', type=float, default=0.5, help='Downscaling factor of the images')
     parser.add_argument('--amp', action='store_true', default=False, help='Use mixed precision')
@@ -210,7 +209,6 @@ if __name__ == '__main__':
             learning_rate=args.lr,
             device=device,
             img_scale=args.scale,
-            val_percent=args.val / 100,
             amp=args.amp
         )
     except torch.cuda.OutOfMemoryError:
@@ -226,6 +224,5 @@ if __name__ == '__main__':
             learning_rate=args.lr,
             device=device,
             img_scale=args.scale,
-            val_percent=args.val / 100,
             amp=args.amp
         )
